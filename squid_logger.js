@@ -115,19 +115,21 @@ function Configure (projectId, googleCloudCredentials, serviceName, version, std
       };
     }
     else
+    {
       throw SquidError.Create({
         message : 'Invalid credentials provided for the Squid Logger library',
-        code : 'SQUID_LOGGER_INVALID_CREDENTIALS',
-        detail : googleCloudCredentials,
-        id : 0,
+        code    : 'SQUID_LOGGER_INVALID_CREDENTIALS',
+        detail  : googleCloudCredentials,
+        id      : 0
       });
+    }
 
     // Creates a Bunyan Cloud Logging client
     const loggingBunyan = new LoggingBunyan({
-      projectId   : projectId,
-      logName     : 'squid-logger',
       ...credentials,
-      resource    : {
+      projectId : projectId,
+      logName   : 'squid-logger',
+      resource  : {
         labels : { project_id : projectId },
         type   : 'api'
       },
@@ -181,9 +183,9 @@ function ReportError (err, req, res, user)
   if (!err)
     return;
 
-  const referrerHeader  = req.headers['referrer'];
-  const userAgentHeader = req.headers['user-agent'];
-  const url             = (typeof req.url === 'string' || req.url instanceof String) ? req.url : req.path;
+  const referrerHeader  = req?.headers['referrer'];
+  const userAgentHeader = req?.headers['user-agent'];
+  const url             = (typeof req?.url === 'string' || req?.url instanceof String) ? req?.url : req?.path;
 
   const context = {
     ...(req && res && {
@@ -209,25 +211,27 @@ function ReportError (err, req, res, user)
       }
     ],
     ...((context.httpRequest || context.user) && { context : context }),
-    httpRequest : {
-      requestMethod : req.method,
-      requestUrl    : url,
-      userAgent     : userAgentHeader,
-      remoteIp      : ExtractRemoteAddressFromRequest(req),
-      status        : res.statusCode,
-      referer       : referrerHeader
+    ...(req && res && {
+      httpRequest : {
+        requestMethod : req.method,
+        requestUrl    : url,
+        userAgent     : userAgentHeader,
+        remoteIp      : ExtractRemoteAddressFromRequest(req),
+        status        : res.statusCode,
+        referer       : referrerHeader
 
-      // add these properties in the future for better structured logging support
-      // requestSize: string,
-      // responseSize: string,
-      // serverIp: string,
-      // latency: string,
-      // cacheLookup: boolean,
-      // cacheHit: boolean,
-      // cacheValidatedWithOriginServer: boolean,
-      // cacheFillBytes: string,
-      // protocol: string
-    },
+        // add these properties in the future for better structured logging support
+        // requestSize: string,
+        // responseSize: string,
+        // serverIp: string,
+        // latency: string,
+        // cacheLookup: boolean,
+        // cacheHit: boolean,
+        // cacheValidatedWithOriginServer: boolean,
+        // cacheFillBytes: string,
+        // protocol: string
+      }
+    }),
     message : err.stack || err,
     err     : err,
     ...(req && { req : req }),
