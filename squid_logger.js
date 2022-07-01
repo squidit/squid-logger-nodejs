@@ -9,9 +9,9 @@ const globalSymbols = Object.getOwnPropertySymbols(global);
 let loggerSingleton;
 
 const serviceContext = {
+  environment : undefined,
   service     : undefined,
-  version     : undefined,
-  environment : undefined
+  version     : undefined
 };
 
 const sourceReference = {
@@ -78,7 +78,7 @@ function ErrorSerializer (err)
     return err;
 }
 
-function Configure (projectId, googleCloudCredentials, serviceName, version, environment, stdOutLogLevel, cloudLoggingLogLevel, sensitiveFieldsObj, applicationRepository, applicationRevisionId)
+function Configure (projectId, googleCloudCredentials, environment, serviceName, version, stdOutLogLevel, cloudLoggingLogLevel, sensitiveFieldsObj, applicationRepository, applicationRevisionId)
 {
   const hasSymbol = (globalSymbols.indexOf(squidLoggerUniqueSymbol) > -1);
 
@@ -86,9 +86,9 @@ function Configure (projectId, googleCloudCredentials, serviceName, version, env
   {
     sensitiveFields = sensitiveFieldsObj || {};
 
-    serviceContext.service     = serviceName;
-    serviceContext.version     = version;
     serviceContext.environment = environment;
+    serviceContext.service     = `${serviceName} - ${environment}`;
+    serviceContext.version     = version;
 
     sourceReference.repository = applicationRepository;
     sourceReference.revisionId = applicationRevisionId;
