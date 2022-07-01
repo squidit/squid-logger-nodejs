@@ -9,8 +9,9 @@ const globalSymbols = Object.getOwnPropertySymbols(global);
 let loggerSingleton;
 
 const serviceContext = {
-  service : undefined,
-  version : undefined
+  service     : undefined,
+  version     : undefined,
+  environment : undefined
 };
 
 const sourceReference = {
@@ -77,7 +78,7 @@ function ErrorSerializer (err)
     return err;
 }
 
-function Configure (projectId, googleCloudCredentials, serviceName, version, stdOutLogLevel, cloudLoggingLogLevel, sensitiveFieldsObj, applicationRepository, applicationRevisionId)
+function Configure (projectId, googleCloudCredentials, serviceName, version, environment, stdOutLogLevel, cloudLoggingLogLevel, sensitiveFieldsObj, applicationRepository, applicationRevisionId)
 {
   const hasSymbol = (globalSymbols.indexOf(squidLoggerUniqueSymbol) > -1);
 
@@ -85,8 +86,9 @@ function Configure (projectId, googleCloudCredentials, serviceName, version, std
   {
     sensitiveFields = sensitiveFieldsObj || {};
 
-    serviceContext.service = serviceName;
-    serviceContext.version = version;
+    serviceContext.service     = serviceName;
+    serviceContext.version     = version;
+    serviceContext.environment = environment;
 
     sourceReference.repository = applicationRepository;
     sourceReference.revisionId = applicationRevisionId;
@@ -158,7 +160,7 @@ function Configure (projectId, googleCloudCredentials, serviceName, version, std
         // Log to the console at 'info' and above
         { stream : process.stdout, level : stdOutLogLevel },
         // And log to Cloud Logging, logging at 'info' and above
-        loggingBunyan.stream(cloudLoggingLogLevel)
+        ...(cloudLoggingLogLevel ? [loggingBunyan.stream(cloudLoggingLogLevel)] : [])
       ]
     });
 
