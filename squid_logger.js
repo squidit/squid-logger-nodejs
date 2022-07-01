@@ -9,9 +9,10 @@ const globalSymbols = Object.getOwnPropertySymbols(global);
 let loggerSingleton;
 
 const serviceContext = {
-  environment : undefined,
-  service     : undefined,
-  version     : undefined
+  environment     : undefined,
+  service         : undefined,
+  version         : undefined,
+  applicationName : undefined
 };
 
 const sourceReference = {
@@ -78,7 +79,7 @@ function ErrorSerializer (err)
     return err;
 }
 
-function Configure (projectId, googleCloudCredentials, environment, serviceName, version, stdOutLogLevel, cloudLoggingLogLevel, sensitiveFieldsObj, applicationRepository, applicationRevisionId)
+function Configure (projectId, googleCloudCredentials, environment, applicationName, version, stdOutLogLevel, cloudLoggingLogLevel, sensitiveFieldsObj, applicationRepository, applicationRevisionId)
 {
   const hasSymbol = (globalSymbols.indexOf(squidLoggerUniqueSymbol) > -1);
 
@@ -86,9 +87,10 @@ function Configure (projectId, googleCloudCredentials, environment, serviceName,
   {
     sensitiveFields = sensitiveFieldsObj || {};
 
-    serviceContext.environment = environment;
-    serviceContext.service     = `${serviceName} - ${environment}`;
-    serviceContext.version     = version;
+    serviceContext.environment     = environment;
+    serviceContext.service         = `${applicationName} - ${environment}`;
+    serviceContext.version         = version;
+    serviceContext.applicationName = applicationName;
 
     sourceReference.repository = applicationRepository;
     sourceReference.revisionId = applicationRevisionId;
@@ -148,7 +150,7 @@ function Configure (projectId, googleCloudCredentials, environment, serviceName,
     loggerSingleton = bunyan.createLogger({
       // The JSON payload of the log as it appears in Cloud Logging
       // will contain "name": "my-service"
-      name        : serviceName,
+      name        : applicationName,
       serializers : {
         req : ReqSerializer,
         res : ResSerializer,
