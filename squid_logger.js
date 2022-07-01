@@ -158,7 +158,7 @@ function Configure (projectId, googleCloudCredentials, environment, serviceName,
       src     : true,
       streams : [
         // Log to the console at 'info' and above
-        { stream : process.stdout, level : stdOutLogLevel },
+        { stream : process.stdout, level : stdOutLogLevel || 'error' },
         // And log to Cloud Logging, logging at 'info' and above
         ...(cloudLoggingLogLevel ? [loggingBunyan.stream(cloudLoggingLogLevel)] : [])
       ]
