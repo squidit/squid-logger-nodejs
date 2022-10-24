@@ -79,6 +79,11 @@ function ErrorSerializer (err)
     return err;
 }
 
+function LogPayloadSerializer (data)
+{
+  return MaskSensitiveData(data);
+}
+
 function Configure (projectId, googleCloudCredentials, environment, applicationName, version, stdOutLogLevel, cloudLoggingLogLevel, sensitiveFieldsObj, applicationRepository, applicationRevisionId)
 {
   const hasSymbol = (globalSymbols.indexOf(squidLoggerUniqueSymbol) > -1);
@@ -152,10 +157,10 @@ function Configure (projectId, googleCloudCredentials, environment, applicationN
       // will contain "name": "my-service"
       name        : applicationName,
       serializers : {
-        req : ReqSerializer,
-        res : ResSerializer,
-        // err : bunyan.stdSerializers.err
-        err : ErrorSerializer
+        req        : ReqSerializer,
+        res        : ResSerializer,
+        err        : ErrorSerializer,
+        logPayload : LogPayloadSerializer
       },
       src     : true,
       streams : [
@@ -182,12 +187,9 @@ function ExtractRemoteAddressFromRequest (req)
     return req.connection?.remoteAddress || req.info?.remoteAddress;
 }
 
-function ReportError (err, req, res, user)
+function FormatLogEntry (req, res, user)
 {
-  if (!err)
-    return;
-
-  const referrerHeader  = req?.headers['referrer'];
+  const referrerHeader  = req?.headers.referrer;
   const userAgentHeader = req?.headers['user-agent'];
   const url             = (typeof req?.url === 'string' || req?.url instanceof String) ? req?.url : req?.path;
 
@@ -205,8 +207,7 @@ function ReportError (err, req, res, user)
     ...(user && (typeof user === 'string' || user instanceof String) && { user : user })
   };
 
-  const obj = {
-    '@type'          : 'type.googleapis.com/google.devtools.clouderrorreporting.v1beta1.ReportedErrorEvent',
+  const logEntry = {
     serviceContext   : serviceContext,
     sourceReferences : [
       {
@@ -236,17 +237,89 @@ function ReportError (err, req, res, user)
         // protocol: string
       }
     }),
-    message : err.stack || err,
-    err     : err,
     ...(req && { req : req }),
     ...(res && { res : res })
   };
 
-  loggerSingleton.error(obj);
+  return logEntry;
+}
+
+function FormatNonErrorLogEntry (dataToLog, req, res, user)
+{
+  const nonErrorLogEntry = {
+    ...FormatLogEntry(req, res, user),
+    logPayload : dataToLog
+  };
+
+  return nonErrorLogEntry;
+}
+
+function FormatErrorLogEntry (err, req, res, user)
+{
+  const errorLogEntry = {
+    ...FormatLogEntry(req, res, user),
+    '@type' : 'type.googleapis.com/google.devtools.clouderrorreporting.v1beta1.ReportedErrorEvent',
+    message : err.stack || err,
+    err     : err
+  };
+
+  return errorLogEntry;
+}
+
+function Log (logMethod, logEntry, skipLog)
+{
+  if (!logEntry || skipLog === true)
+    return;
+
+  logMethod(logEntry);
+}
+
+function Trace (dataToLog, req, res, user, skipLog)
+{
+  return Log(loggerSingleton.trace.bind(loggerSingleton), FormatNonErrorLogEntry(dataToLog, req, res, user), skipLog || dataToLog?.skipLog);
+}
+
+function Debug (dataToLog, req, res, user, skipLog)
+{
+  return Log(loggerSingleton.debug.bind(loggerSingleton), FormatNonErrorLogEntry(dataToLog, req, res, user), skipLog || dataToLog?.skipLog);
+}
+
+function Info (dataToLog, req, res, user, skipLog)
+{
+  return Log(loggerSingleton.info.bind(loggerSingleton), FormatNonErrorLogEntry(dataToLog, req, res, user), skipLog || dataToLog?.skipLog);
+}
+
+function Warn (dataToLog, req, res, user, skipLog)
+{
+  return Log(loggerSingleton.warn.bind(loggerSingleton), FormatNonErrorLogEntry(dataToLog, req, res, user), skipLog || dataToLog?.skipLog);
+}
+
+function Error (err, req, res, user, skipLog)
+{
+  return Log(loggerSingleton.error.bind(loggerSingleton), FormatErrorLogEntry(err, req, res, user), skipLog || err?.skipLog);
+}
+
+function Fatal (err, req, res, user, skipLog)
+{
+  return Log(loggerSingleton.fatal.bind(loggerSingleton), FormatErrorLogEntry(err, req, res, user), skipLog || err?.skipLog);
+}
+
+/**
+ * @deprecated This funcction should not be used. Use the "Error" function instead.
+ */
+function ReportError (err, req, res, user)
+{
+  return Error(err, req, res, user);
 }
 
 // maybe expose the logger singleton object?
 // exports.squidLogger = loggerSingleton;
 
 exports.Configure   = Configure;
+exports.Trace       = Trace;
+exports.Debug       = Debug;
+exports.Info        = Info;
+exports.Warn        = Warn;
+exports.Error       = Error;
+exports.Fatal       = Fatal;
 exports.ReportError = ReportError;
