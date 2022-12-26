@@ -54,8 +54,12 @@ function MaskSensitiveData (data)
 function ReqSerializer (data)
 {
   return MaskSensitiveData({
-    ...bunyan.stdSerializers.req(data),
-    body : data.body || data.payload
+    method        : data.method,
+    url           : data.originalUrl || data.url,
+    headers       : data.headers,
+    body          : data.body || data.payload,
+    remoteAddress : data?.connection?.remoteAddress,
+    remotePort    : data?.connection?.remotePort
   });
 }
 
