@@ -73,16 +73,6 @@ function ResSerializer (data)
   });
 }
 
-function ErrorSerializer (err)
-{
-  if (err instanceof SquidError)
-    return err.Serialize();
-  else if (err instanceof Error)
-    return SquidError.SerializeNativeError(err);
-  else
-    return err;
-}
-
 function LogPayloadSerializer (data)
 {
   return MaskSensitiveData(data);
@@ -163,7 +153,7 @@ function Configure (projectId, googleCloudCredentials, environment, applicationN
       serializers : {
         req        : ReqSerializer,
         res        : ResSerializer,
-        err        : ErrorSerializer,
+        err        : SquidError.Serialize,
         logPayload : LogPayloadSerializer
       },
       src     : true,
