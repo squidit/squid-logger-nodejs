@@ -88,6 +88,7 @@ function Configure (stdOutLogLevel, cloudLoggingLogLevel, sensitiveFieldsObj)
       defaultCallback : err =>
       {
         if (err)
+          // eslint-disable-next-line no-console
           console.log('Error occured: ' + err);
       },
       serviceContext : SquidObservabilityConfigs.serviceContext
