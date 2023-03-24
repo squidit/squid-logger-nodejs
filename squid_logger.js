@@ -1,24 +1,14 @@
-const bunyan            = require('bunyan');
-const dot               = require('dot-object');
-const { LoggingBunyan } = require('@google-cloud/logging-bunyan');
-const { SquidError }    = require('squid-error');
 
-const squidLoggerUniqueSymbol = Symbol.for('squidLoggerSingleton');
-const globalSymbols = Object.getOwnPropertySymbols(global);
+const bunyan                    = require('bunyan');
+const dot                       = require('dot-object');
+const { LoggingBunyan }         = require('@google-cloud/logging-bunyan');
+const { SquidError }            = require('squid-error');
+const SquidObservabilityConfigs = require('squid-observability-configs');
+
+const squidLoggerUniqueSymbol   = Symbol.for('squidLoggerSingleton');
+const globalSymbols             = Object.getOwnPropertySymbols(global);
 
 let loggerSingleton;
-
-const serviceContext = {
-  environment     : undefined,
-  service         : undefined,
-  version         : undefined,
-  applicationName : undefined
-};
-
-const sourceReference = {
-  repository : undefined,
-  revisionId : undefined
-};
 
 let sensitiveFields = {};
 
@@ -78,7 +68,7 @@ function LogPayloadSerializer (data)
   return MaskSensitiveData(data);
 }
 
-function Configure (projectId, googleCloudCredentials, environment, applicationName, version, stdOutLogLevel, cloudLoggingLogLevel, sensitiveFieldsObj, applicationRepository, applicationRevisionId)
+function Configure (stdOutLogLevel, cloudLoggingLogLevel, sensitiveFieldsObj)
 {
   const hasSymbol = (globalSymbols.indexOf(squidLoggerUniqueSymbol) > -1);
 
@@ -86,62 +76,22 @@ function Configure (projectId, googleCloudCredentials, environment, applicationN
   {
     sensitiveFields = sensitiveFieldsObj || {};
 
-    serviceContext.environment     = environment;
-    serviceContext.service         = `${applicationName} - ${environment}`;
-    serviceContext.version         = version;
-    serviceContext.applicationName = applicationName;
-
-    sourceReference.repository = applicationRepository;
-    sourceReference.revisionId = applicationRevisionId;
-
-    let credentials = {};
-
-    if (typeof googleCloudCredentials === 'string' || googleCloudCredentials instanceof String)
-    {
-      try
-      {
-        credentials = {
-          credentials : JSON.parse(googleCloudCredentials)
-        };
-      }
-      catch (error)
-      {
-        credentials = {
-          keyFilename : googleCloudCredentials
-        };
-      }
-    }
-    else if (typeof googleCloudCredentials === 'object' && googleCloudCredentials !== null)
-    {
-      credentials = {
-        credentials : googleCloudCredentials
-      };
-    }
-    else
-    {
-      throw SquidError.Create({
-        message : 'Invalid credentials provided for the Squid Logger library',
-        code    : 'SQUID_LOGGER_INVALID_CREDENTIALS',
-        detail  : googleCloudCredentials,
-        id      : 0
-      });
-    }
-
     // Creates a Bunyan Cloud Logging client
     const loggingBunyan = new LoggingBunyan({
-      ...credentials,
-      projectId : projectId,
+      ...SquidObservabilityConfigs.credentials,
+      projectId : SquidObservabilityConfigs.projectId,
       logName   : 'squid-logger',
       resource  : {
-        labels : { project_id : projectId },
+        labels : { project_id : SquidObservabilityConfigs.projectId },
         type   : 'api'
       },
       defaultCallback : err =>
       {
         if (err)
+          // eslint-disable-next-line no-console
           console.log('Error occured: ' + err);
       },
-      serviceContext : serviceContext
+      serviceContext : SquidObservabilityConfigs.serviceContext
     });
 
     // Create a Bunyan logger that streams to Cloud Logging
@@ -149,7 +99,7 @@ function Configure (projectId, googleCloudCredentials, environment, applicationN
     loggerSingleton = bunyan.createLogger({
       // The JSON payload of the log as it appears in Cloud Logging
       // will contain "name": "my-service"
-      name        : applicationName,
+      name        : SquidObservabilityConfigs.serviceContext.applicationName,
       serializers : {
         req        : ReqSerializer,
         res        : ResSerializer,
@@ -202,11 +152,11 @@ function FormatLogEntry (req, res, user)
   };
 
   const logEntry = {
-    serviceContext   : serviceContext,
+    serviceContext   : SquidObservabilityConfigs.serviceContext,
     sourceReferences : [
       {
-        ...(sourceReference.repository && { repository : sourceReference.repository }),
-        ...(sourceReference.revisionId && { revisionId : sourceReference.revisionId })
+        ...(SquidObservabilityConfigs.sourceReference.repository && { repository : SquidObservabilityConfigs.sourceReference.repository }),
+        ...(SquidObservabilityConfigs.sourceReference.revisionId && { revisionId : SquidObservabilityConfigs.sourceReference.revisionId })
       }
     ],
     ...((context.httpRequest || context.user) && { context : context }),
