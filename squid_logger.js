@@ -1,12 +1,12 @@
-const bunyan            = require('bunyan');
-const dot               = require('dot-object');
-const { LoggingBunyan } = require('@google-cloud/logging-bunyan');
-const { SquidError }    = require('squid-error');
 
-const squidLoggerUniqueSymbol = Symbol.for('squidLoggerSingleton');
-const globalSymbols = Object.getOwnPropertySymbols(global);
+const bunyan                    = require('bunyan');
+const dot                       = require('dot-object');
+const { LoggingBunyan }         = require('@google-cloud/logging-bunyan');
+const { SquidError }            = require('squid-error');
+const SquidObservabilityConfigs = require('squid-observability-configs');
 
-const SquidObservabilityConfigs = require('./libraries/squid-observability-cofigs/squid_observability_configs');
+const squidLoggerUniqueSymbol   = Symbol.for('squidLoggerSingleton');
+const globalSymbols             = Object.getOwnPropertySymbols(global);
 
 let loggerSingleton;
 
