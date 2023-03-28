@@ -14,7 +14,7 @@
     "bunyan": "^1.8.15",
     "dot-object": "^2.1.4",
     "squid-error": "file:libraries/squid-error-nodejs",
-    "squid-observability-configs": "file:libraries/squid-observability-configs"
+    "squid-observability-configs": "file:libraries/squid-observability-configs-nodejs"
   },
   "devDependencies": {
     "babel-eslint": "^10.1.0",
