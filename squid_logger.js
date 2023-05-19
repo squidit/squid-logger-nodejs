@@ -131,7 +131,7 @@ function ExtractRemoteAddressFromRequest (req)
     return req.connection?.remoteAddress || req.info?.remoteAddress;
 }
 
-function FormatLogEntry (req, res, user)
+function FormatLogEntry (req, res, user, labels)
 {
   const referrerHeader  = req?.headers.referrer;
   const userAgentHeader = req?.headers['user-agent'];
@@ -182,26 +182,32 @@ function FormatLogEntry (req, res, user)
       }
     }),
     ...(req && { req : req }),
-    ...(res && { res : res })
+    ...(res && { res : res }),
+    // If the bunyan log record contains a label property where all the values are strings,
+    // @google-cloud/logging-bunyan automatically promotes that property to be the LogEntry.labels
+    // value rather than being one of the properties in the payload fields. This makes it easier
+    // to filter the logs in the UI using the labels. All the label values must be strings for
+    // this automatic promotion to work. Otherwise the labels are left in the payload.
+    ...(labels && { labels : labels })
   };
 
   return logEntry;
 }
 
-function FormatNonErrorLogEntry (dataToLog, req, res, user)
+function FormatNonErrorLogEntry (dataToLog, req, res, user, labels)
 {
   const nonErrorLogEntry = {
-    ...FormatLogEntry(req, res, user),
+    ...FormatLogEntry(req, res, user, labels),
     logPayload : dataToLog
   };
 
   return nonErrorLogEntry;
 }
 
-function FormatErrorLogEntry (err, req, res, user)
+function FormatErrorLogEntry (err, req, res, user, labels)
 {
   const errorLogEntry = {
-    ...FormatLogEntry(req, res, user),
+    ...FormatLogEntry(req, res, user, labels),
     '@type' : 'type.googleapis.com/google.devtools.clouderrorreporting.v1beta1.ReportedErrorEvent',
     message : err.stack || err,
     err     : err
@@ -218,34 +224,34 @@ function Log (logMethod, logEntry, skipLog)
   logMethod(logEntry);
 }
 
-function Trace (dataToLog, req, res, user, skipLog)
+function Trace (dataToLog, req, res, user, skipLog, labels)
 {
-  return Log(loggerSingleton.trace.bind(loggerSingleton), FormatNonErrorLogEntry(dataToLog, req, res, user), skipLog || dataToLog?.skipLog);
+  return Log(loggerSingleton.trace.bind(loggerSingleton), FormatNonErrorLogEntry(dataToLog, req, res, user, labels), skipLog || dataToLog?.skipLog);
 }
 
-function Debug (dataToLog, req, res, user, skipLog)
+function Debug (dataToLog, req, res, user, skipLog, labels)
 {
-  return Log(loggerSingleton.debug.bind(loggerSingleton), FormatNonErrorLogEntry(dataToLog, req, res, user), skipLog || dataToLog?.skipLog);
+  return Log(loggerSingleton.debug.bind(loggerSingleton), FormatNonErrorLogEntry(dataToLog, req, res, user, labels), skipLog || dataToLog?.skipLog);
 }
 
-function Info (dataToLog, req, res, user, skipLog)
+function Info (dataToLog, req, res, user, skipLog, labels)
 {
-  return Log(loggerSingleton.info.bind(loggerSingleton), FormatNonErrorLogEntry(dataToLog, req, res, user), skipLog || dataToLog?.skipLog);
+  return Log(loggerSingleton.info.bind(loggerSingleton), FormatNonErrorLogEntry(dataToLog, req, res, user, labels), skipLog || dataToLog?.skipLog);
 }
 
-function Warn (dataToLog, req, res, user, skipLog)
+function Warn (dataToLog, req, res, user, skipLog, labels)
 {
-  return Log(loggerSingleton.warn.bind(loggerSingleton), FormatNonErrorLogEntry(dataToLog, req, res, user), skipLog || dataToLog?.skipLog);
+  return Log(loggerSingleton.warn.bind(loggerSingleton), FormatNonErrorLogEntry(dataToLog, req, res, user, labels), skipLog || dataToLog?.skipLog);
 }
 
-function Error (err, req, res, user, skipLog)
+function Error (err, req, res, user, skipLog, labels)
 {
-  return Log(loggerSingleton.error.bind(loggerSingleton), FormatErrorLogEntry(err, req, res, user), skipLog || err?.skipLog);
+  return Log(loggerSingleton.error.bind(loggerSingleton), FormatErrorLogEntry(err, req, res, user, labels), skipLog || err?.skipLog);
 }
 
-function Fatal (err, req, res, user, skipLog)
+function Fatal (err, req, res, user, skipLog, labels)
 {
-  return Log(loggerSingleton.fatal.bind(loggerSingleton), FormatErrorLogEntry(err, req, res, user), skipLog || err?.skipLog);
+  return Log(loggerSingleton.fatal.bind(loggerSingleton), FormatErrorLogEntry(err, req, res, user, labels), skipLog || err?.skipLog);
 }
 
 /**
