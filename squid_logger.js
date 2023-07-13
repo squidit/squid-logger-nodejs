@@ -85,13 +85,21 @@ function Configure (stdOutLogLevel, cloudLoggingLogLevel, sensitiveFieldsObj)
         labels : { project_id : SquidObservabilityConfigs.projectId },
         type   : 'api'
       },
-      defaultCallback : err =>
+      defaultCallback : error =>
       {
-        if (err)
+        if (error)
           // eslint-disable-next-line no-console
-          console.log('Error occured: ' + err);
+          console.log(`Squid Logger | GCM logging error: ${error}`);
       },
       serviceContext : SquidObservabilityConfigs.serviceContext
+    });
+
+    // required due to the fact that some errors can be thrown outside the scope of the default callback
+    // see: https://github.com/googleapis/nodejs-logging-bunyan/issues/687
+    loggingBunyan.on('error', (error) =>
+    {
+      // eslint-disable-next-line no-console
+      console.log(`Squid Logger | Bunyan logging error: ${error}`);
     });
 
     // Create a Bunyan logger that streams to Cloud Logging
