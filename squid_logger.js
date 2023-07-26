@@ -131,7 +131,7 @@ function Configure (stdOutLogLevel, cloudLoggingLogLevel, sensitiveFieldsObj)
 
 function ExtractRemoteAddressFromRequest (req)
 {
-  const xForwardedForHeader = req.headers['x-forwarded-for'];
+  const xForwardedForHeader = req.headers?.['x-forwarded-for'];
 
   if (typeof xForwardedForHeader !== 'undefined')
     return xForwardedForHeader;
@@ -141,8 +141,8 @@ function ExtractRemoteAddressFromRequest (req)
 
 function FormatLogEntry (req, res, user, labels)
 {
-  const referrerHeader  = req?.headers.referrer;
-  const userAgentHeader = req?.headers['user-agent'];
+  const referrerHeader  = req?.headers?.referrer;
+  const userAgentHeader = req?.headers?.['user-agent'];
   const url             = (typeof req?.url === 'string' || req?.url instanceof String) ? req?.url : req?.path;
 
   const context = {
