@@ -5,11 +5,40 @@ const { LoggingBunyan }         = require('@google-cloud/logging-bunyan');
 const { SquidError }            = require('squid-error');
 const SquidObservabilityConfigs = require('squid-observability-configs');
 
+/**
+ * @typedef {import('bunyan').LogLevelString} LogLevel
+ * @typedef {ReturnType<typeof bunyan.createLogger>} BunyanLogger
+ * @typedef {(value: unknown) => unknown} SensitiveFieldMasker
+ * @typedef {Record<string, SensitiveFieldMasker | unknown>} SensitiveFields
+ * @typedef {Record<string, string>} LoggerLabels
+ *
+ * @typedef {object} LoggerRequest
+ * @property {string=} method
+ * @property {string=} originalUrl
+ * @property {string=} url
+ * @property {string=} path
+ * @property {Record<string, unknown>=} headers
+ * @property {unknown=} body
+ * @property {unknown=} payload
+ * @property {{ remoteAddress?: string, remotePort?: number | string }=} connection
+ * @property {{ remoteAddress?: string }=} info
+ *
+ * @typedef {object} LoggerResponse
+ * @property {number=} statusCode
+ * @property {string=} statusMessage
+ * @property {Record<string, unknown>=} headers
+ * @property {Record<string, unknown>=} _headers
+ * @property {{ body?: unknown }=} locals
+ * @property {unknown=} source
+ */
+
 const squidLoggerUniqueSymbol   = Symbol.for('squidLoggerSingleton');
 const globalSymbols             = Object.getOwnPropertySymbols(global);
 
+/** @type {BunyanLogger | undefined} */
 let loggerSingleton;
 
+/** @type {SensitiveFields} */
 let sensitiveFields = {};
 
 const MASK = '****';
@@ -68,6 +97,12 @@ function LogPayloadSerializer (data)
   return MaskSensitiveData(data);
 }
 
+/**
+ * @param {LogLevel | null | undefined} stdOutLogLevel
+ * @param {LogLevel | null | undefined} cloudLoggingLogLevel
+ * @param {SensitiveFields=} sensitiveFieldsObj
+ * @returns {BunyanLogger}
+ */
 function Configure (stdOutLogLevel, cloudLoggingLogLevel, sensitiveFieldsObj)
 {
   const hasSymbol = (globalSymbols.indexOf(squidLoggerUniqueSymbol) > -1);
@@ -129,6 +164,10 @@ function Configure (stdOutLogLevel, cloudLoggingLogLevel, sensitiveFieldsObj)
   return loggerSingleton;
 };
 
+/**
+ * @param {LoggerRequest} req
+ * @returns {string | undefined}
+ */
 function ExtractRemoteAddressFromRequest (req)
 {
   const xForwardedForHeader = req.headers?.['x-forwarded-for'];
@@ -139,6 +178,13 @@ function ExtractRemoteAddressFromRequest (req)
     return req.connection?.remoteAddress || req.info?.remoteAddress;
 }
 
+/**
+ * @param {LoggerRequest=} req
+ * @param {LoggerResponse=} res
+ * @param {string=} user
+ * @param {LoggerLabels=} labels
+ * @returns {Record<string, unknown>}
+ */
 function FormatLogEntry (req, res, user, labels)
 {
   const referrerHeader  = req?.headers?.referrer;
@@ -202,6 +248,14 @@ function FormatLogEntry (req, res, user, labels)
   return logEntry;
 }
 
+/**
+ * @param {unknown} dataToLog
+ * @param {LoggerRequest=} req
+ * @param {LoggerResponse=} res
+ * @param {string=} user
+ * @param {LoggerLabels=} labels
+ * @returns {Record<string, unknown>}
+ */
 function FormatNonErrorLogEntry (dataToLog, req, res, user, labels)
 {
   const nonErrorLogEntry = {
@@ -212,6 +266,14 @@ function FormatNonErrorLogEntry (dataToLog, req, res, user, labels)
   return nonErrorLogEntry;
 }
 
+/**
+ * @param {unknown} err
+ * @param {LoggerRequest=} req
+ * @param {LoggerResponse=} res
+ * @param {string=} user
+ * @param {LoggerLabels=} labels
+ * @returns {Record<string, unknown>}
+ */
 function FormatErrorLogEntry (err, req, res, user, labels)
 {
   const errorLogEntry = {
@@ -224,6 +286,12 @@ function FormatErrorLogEntry (err, req, res, user, labels)
   return errorLogEntry;
 }
 
+/**
+ * @param {(entry: Record<string, unknown>) => void} logMethod
+ * @param {Record<string, unknown> | undefined} logEntry
+ * @param {boolean | undefined} skipLog
+ * @returns {void}
+ */
 function Log (logMethod, logEntry, skipLog)
 {
   if (!logEntry || skipLog === true)
@@ -232,31 +300,85 @@ function Log (logMethod, logEntry, skipLog)
   logMethod(logEntry);
 }
 
+/**
+ * @param {unknown} dataToLog
+ * @param {LoggerRequest=} req
+ * @param {LoggerResponse=} res
+ * @param {string=} user
+ * @param {boolean=} skipLog
+ * @param {LoggerLabels=} labels
+ * @returns {void}
+ */
 function Trace (dataToLog, req, res, user, skipLog, labels)
 {
   return Log(loggerSingleton.trace.bind(loggerSingleton), FormatNonErrorLogEntry(dataToLog, req, res, user, labels), skipLog || dataToLog?.skipLog);
 }
 
+/**
+ * @param {unknown} dataToLog
+ * @param {LoggerRequest=} req
+ * @param {LoggerResponse=} res
+ * @param {string=} user
+ * @param {boolean=} skipLog
+ * @param {LoggerLabels=} labels
+ * @returns {void}
+ */
 function Debug (dataToLog, req, res, user, skipLog, labels)
 {
   return Log(loggerSingleton.debug.bind(loggerSingleton), FormatNonErrorLogEntry(dataToLog, req, res, user, labels), skipLog || dataToLog?.skipLog);
 }
 
+/**
+ * @param {unknown} dataToLog
+ * @param {LoggerRequest=} req
+ * @param {LoggerResponse=} res
+ * @param {string=} user
+ * @param {boolean=} skipLog
+ * @param {LoggerLabels=} labels
+ * @returns {void}
+ */
 function Info (dataToLog, req, res, user, skipLog, labels)
 {
   return Log(loggerSingleton.info.bind(loggerSingleton), FormatNonErrorLogEntry(dataToLog, req, res, user, labels), skipLog || dataToLog?.skipLog);
 }
 
+/**
+ * @param {unknown} dataToLog
+ * @param {LoggerRequest=} req
+ * @param {LoggerResponse=} res
+ * @param {string=} user
+ * @param {boolean=} skipLog
+ * @param {LoggerLabels=} labels
+ * @returns {void}
+ */
 function Warn (dataToLog, req, res, user, skipLog, labels)
 {
   return Log(loggerSingleton.warn.bind(loggerSingleton), FormatNonErrorLogEntry(dataToLog, req, res, user, labels), skipLog || dataToLog?.skipLog);
 }
 
+/**
+ * @param {unknown} err
+ * @param {LoggerRequest=} req
+ * @param {LoggerResponse=} res
+ * @param {string=} user
+ * @param {boolean=} skipLog
+ * @param {LoggerLabels=} labels
+ * @returns {void}
+ */
 function Error (err, req, res, user, skipLog, labels)
 {
   return Log(loggerSingleton.error.bind(loggerSingleton), FormatErrorLogEntry(err, req, res, user, labels), skipLog || err?.skipLog);
 }
 
+/**
+ * @param {unknown} err
+ * @param {LoggerRequest=} req
+ * @param {LoggerResponse=} res
+ * @param {string=} user
+ * @param {boolean=} skipLog
+ * @param {LoggerLabels=} labels
+ * @returns {void}
+ */
 function Fatal (err, req, res, user, skipLog, labels)
 {
   return Log(loggerSingleton.fatal.bind(loggerSingleton), FormatErrorLogEntry(err, req, res, user, labels), skipLog || err?.skipLog);
@@ -264,6 +386,11 @@ function Fatal (err, req, res, user, skipLog, labels)
 
 /**
  * @deprecated This funcction should not be used. Use the "Error" function instead.
+ * @param {unknown} err
+ * @param {LoggerRequest=} req
+ * @param {LoggerResponse=} res
+ * @param {string=} user
+ * @returns {void}
  */
 function ReportError (err, req, res, user)
 {
